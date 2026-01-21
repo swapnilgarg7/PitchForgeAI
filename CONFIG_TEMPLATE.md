@@ -3,6 +3,10 @@
 # This file documents all available configuration options.
 # Copy .env.example to .env and customize for your project.
 
+## AI Configuration
+# Get your API key from https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_gemini_api_key_here
+
 ## Google API Configuration
 # These IDs can be found in the URLs of your Google Slides/Sheets
 TEMPLATE_PRESENTATION_ID=your_template_presentation_id_here

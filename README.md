@@ -140,17 +140,7 @@ In your Google Cloud Project, enable these APIs:
 
 ### Configuration
 
-#### Option 1: Interactive Setup (Recommended)
-
-Run the setup script:
-
-```bash
-python3 setup.py
-```
-
-This will guide you through creating your `.env` file with the required configuration.
-
-#### Option 2: Manual Setup
+#### 1. Environment Setup
 
 1. Copy the example environment file:
 
@@ -158,36 +148,17 @@ This will guide you through creating your `.env` file with the required configur
 cp .env.example .env
 ```
 
-2. Edit `.env` and update the following **required** variables:
+2. Edit `.env` and add the following fields:
 
 ```bash
+# Get your key from https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=your_api_key_here
+
 # Your Google Slides template ID (from the URL)
 TEMPLATE_PRESENTATION_ID=your_template_id_here
-
-# Your company/project information
-COMPANY_NAME=Your Company Name
-TAGLINE=Your compelling tagline
-SUBTITLE=Your mission statement
-
-# ... customize all other fields as needed
 ```
 
-3. To find your Template Presentation ID:
-   - Open your Google Slides template
-   - Look at the URL: `https://docs.google.com/presentation/d/TEMPLATE_ID_HERE/edit`
-   - Copy the ID between `/d/` and `/edit`
-
----
-
-### Prepare Your Template
-
-1. Create a Google Slides presentation to use as your template
-2. Add placeholders using the format: `{{PLACEHOLDER_NAME}}`
-   - Example: `{{COMPANY_NAME}}`, `{{PROBLEM_1}}`, `{{SOLUTION_1}}`
-3. (Optional) Link Google Sheets charts for dynamic data visualization
-4. Share the template with yourself or make it accessible to your Google account
-
-See `.env.example` for all available placeholder variables.
+3. (Optional) Run `python3 setup.py` for interactive configuration of other variables.
 
 ---
 
@@ -199,42 +170,50 @@ See `.env.example` for all available placeholder variables.
 python3 generate_ppt.py
 ```
 
-#### First-time authentication
+#### Interactive Mode
 
-On your first run:
-1. A browser window will open for Google OAuth authentication
-2. Sign in with your Google account
-3. Grant the requested permissions
-4. The credentials will be saved locally in `token.pickle`
+The script will now ask for your startup details interactively:
+
+```text
+📝 Tell us about your startup:
+What is your startup idea? > Uber for dog walking
+Who is your target customer? > Busy pet owners in cities
+Target region? > North America
+Any specific constraints? > Focus on safety and vetting
+```
 
 #### Output
 
 The script will:
-- ✓ Copy your template presentation
-- ✓ Replace all placeholders with your data from `.env`
-- ✓ Update any linked charts with market data
-- ✓ Export the final deck as `output_pitch_deck.pptx`
-
-You'll see output like:
+1. **Generate Content**: Uses Gemini AI to create professional pitch deck copy
+2. **Estimate Market Size**: Calculates TAM/SAM/SOM numbers
+3. **Create Slides**:
+   - Copies your template
+   - Fills in the AI-generated content
+   - Updates charts with the market numbers
+   - Exports to PowerPoint
 
 ```
 ============================================================
 PitchForge AI - Pitch Deck Generator
 ============================================================
-Copying template presentation: 1XV-Zf1r...
-✓ Presentation copied successfully: 1Pyp1oV...
+
+📝 Tell us about your startup:
+...
+
+🤖 Generating pitch deck content...
+📊 Generating market data...
+Copying template presentation...
+✓ Presentation copied successfully
 Replacing text placeholders...
 ✓ Replaced 39 text placeholders
 Updating market chart data...
 ✓ Market data updated in sheet
 ✓ Refreshed 1 chart(s)
-Exporting presentation to output_pitch_deck.pptx...
+Exporting presentation...
 ✓ Presentation exported successfully
 ============================================================
 ✓ DONE! Your pitch deck is ready.
-  File: output_pitch_deck.pptx
-  Google Slides: https://docs.google.com/presentation/d/...
-============================================================
 ```
 
 ---
