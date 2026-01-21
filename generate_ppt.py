@@ -13,6 +13,8 @@ from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
+from ai_generator import generate_pitch_metadata, generate_market_data
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -90,79 +92,40 @@ def authenticate_google_services():
     return slides_service, drive_service, sheets_service
 
 
-def load_placeholders() -> Dict[str, str]:
+def get_user_input() -> Dict[str, Any]:
     """
-    Load placeholder values from environment variables.
+    Get startup idea and context from user input.
     
     Returns:
-        Dictionary mapping placeholder keys to their values
+        Dictionary with idea and context
     """
+    print("\n📝 Tell us about your startup:")
+    idea = input("What is your startup idea? ").strip()
+    customer = input("Who is your target customer? ").strip()
+    region = input("Target region (e.g., US, Global)? ").strip()
+    constraints = input("Any specific constraints/focus? ").strip()
+    
     return {
-        "{{COMPANY_NAME}}": get_env_variable("COMPANY_NAME"),
-        "{{TAGLINE}}": get_env_variable("TAGLINE"),
-        "{{SUBTITLE}}": get_env_variable("SUBTITLE"),
-        
-        "{{PROBLEM_1}}": get_env_variable("PROBLEM_1"),
-        "{{PROBLEM_2}}": get_env_variable("PROBLEM_2"),
-        "{{PROBLEM_3}}": get_env_variable("PROBLEM_3"),
-        "{{PROBLEM_4}}": get_env_variable("PROBLEM_4"),
-        
-        "{{INSIGHT_1}}": get_env_variable("INSIGHT_1"),
-        "{{INSIGHT_2}}": get_env_variable("INSIGHT_2"),
-        "{{INSIGHT_3}}": get_env_variable("INSIGHT_3"),
-        
-        "{{SOLUTION_1}}": get_env_variable("SOLUTION_1"),
-        "{{SOLUTION_2}}": get_env_variable("SOLUTION_2"),
-        "{{SOLUTION_3}}": get_env_variable("SOLUTION_3"),
-        "{{SOLUTION_4}}": get_env_variable("SOLUTION_4"),
-        
-        "{{FLOW_1}}": get_env_variable("FLOW_1"),
-        "{{FLOW_2}}": get_env_variable("FLOW_2"),
-        "{{FLOW_3}}": get_env_variable("FLOW_3"),
-        "{{FLOW_4}}": get_env_variable("FLOW_4"),
-        
-        "{{TAM_VALUE}}": get_env_variable("TAM_VALUE"),
-        "{{SAM_VALUE}}": get_env_variable("SAM_VALUE"),
-        "{{SOM_VALUE}}": get_env_variable("SOM_VALUE"),
-        
-        "{{WHY_NOW_1}}": get_env_variable("WHY_NOW_1"),
-        "{{WHY_NOW_2}}": get_env_variable("WHY_NOW_2"),
-        "{{WHY_NOW_3}}": get_env_variable("WHY_NOW_3"),
-        "{{WHY_NOW_4}}": get_env_variable("WHY_NOW_4"),
-        
-        "{{BUSINESS_MODEL_1}}": get_env_variable("BUSINESS_MODEL_1"),
-        "{{BUSINESS_MODEL_2}}": get_env_variable("BUSINESS_MODEL_2"),
-        "{{BUSINESS_MODEL_3}}": get_env_variable("BUSINESS_MODEL_3"),
-        
-        "{{GTM_1}}": get_env_variable("GTM_1"),
-        "{{GTM_2}}": get_env_variable("GTM_2"),
-        "{{GTM_3}}": get_env_variable("GTM_3"),
-        "{{GTM_4}}": get_env_variable("GTM_4"),
-        
-        "{{COMPETITION_1}}": get_env_variable("COMPETITION_1"),
-        "{{COMPETITION_2}}": get_env_variable("COMPETITION_2"),
-        "{{COMPETITION_3}}": get_env_variable("COMPETITION_3"),
-        
-        "{{RISK_1}}": get_env_variable("RISK_1"),
-        "{{RISK_2}}": get_env_variable("RISK_2"),
-        "{{RISK_3}}": get_env_variable("RISK_3"),
-        
-        "{{VISION_STATEMENT}}": get_env_variable("VISION_STATEMENT")
+        "idea": idea,
+        "context": {
+            "customer": customer,
+            "region": region,
+            "constraints": constraints
+        }
     }
 
 
-def load_market_data() -> Dict[str, float]:
+def prepare_placeholders(generated_data: Dict[str, str]) -> Dict[str, str]:
     """
-    Load market size data from environment variables.
+    Format generated data into placeholder format.
     
+    Args:
+        generated_data: Raw dictionary from LLM
+        
     Returns:
-        Dictionary with TAM, SAM, SOM numeric values
+        Dictionary mapping {{KEY}} to value
     """
-    return {
-        "TAM": float(get_env_variable("TAM_NUMERIC")),
-        "SAM": float(get_env_variable("SAM_NUMERIC")),
-        "SOM": float(get_env_variable("SOM_NUMERIC"))
-    }
+    return {f"{{{{{key}}}}}": value for key, value in generated_data.items()}
 
 
 def copy_template_presentation(drive_service, template_id: str, output_name: str) -> str:
@@ -269,9 +232,9 @@ def update_market_chart(slides_service, sheets_service, presentation_id: str, ma
     # Update sheet values
     sheet_values = [
         ["Metric", "Value"],
-        ["TAM", market_data["TAM"]],
-        ["SAM", market_data["SAM"]],
-        ["SOM", market_data["SOM"]]
+        ["TAM", market_data.get("TAM", 0)],
+        ["SAM", market_data.get("SAM", 0)],
+        ["SOM", market_data.get("SOM", 0)]
     ]
     
     sheets_service.spreadsheets().values().update(
@@ -327,17 +290,26 @@ def main():
         print("PitchForge AI - Pitch Deck Generator")
         print("=" * 60)
         
+        # 1. Get User Input
+        user_data = get_user_input()
+        
+        # 2. Generate Content with AI
+        print("\n🤖 Generating pitch deck content...")
+        generated_content = generate_pitch_metadata(user_data["idea"], user_data["context"])
+        
+        print("📊 Generating market data...")
+        market_data = generate_market_data(user_data["idea"], user_data["context"])
+        
         # Load configuration from environment
         template_id = get_env_variable("TEMPLATE_PRESENTATION_ID")
-        output_name = get_env_variable("OUTPUT_PRESENTATION_NAME", "Generated Pitch Deck")
+        output_name = f"Pitch Deck - {generated_content.get('COMPANY_NAME', 'Startup')}"
         output_file = get_env_variable("OUTPUT_FILE_NAME", "output_pitch_deck.pptx")
         
         # Authenticate with Google services
         slides_service, drive_service, sheets_service = authenticate_google_services()
         
-        # Load data from environment
-        placeholders = load_placeholders()
-        market_data = load_market_data()
+        # Prepare placeholders
+        placeholders = prepare_placeholders(generated_content)
         
         # Create presentation
         presentation_id = copy_template_presentation(drive_service, template_id, output_name)
