@@ -25,9 +25,9 @@ PITCH_DECK_SCHEMA = {
     "FLOW_2": "String (max 8 words)",
     "FLOW_3": "String (max 8 words)",
     "FLOW_4": "String (max 8 words)",
-    "TAM_VALUE": "String (e.g. '$10B')",
-    "SAM_VALUE": "String (e.g. '$2B')",
-    "SOM_VALUE": "String (e.g. '$200M')",
+    "TAM_VALUE": "String with $ and B/M suffix (e.g. '$150B', '$50B'). Must include B for billions or M for millions.",
+    "SAM_VALUE": "String with $ and B/M suffix (e.g. '$25B', '$10B'). Must include B for billions or M for millions.",
+    "SOM_VALUE": "String with $ and M suffix (e.g. '$500M', '$100M'). Must include M for millions.",
     "WHY_NOW_1": "String (max 8 words)",
     "WHY_NOW_2": "String (max 8 words)",
     "WHY_NOW_3": "String (max 8 words)",
@@ -147,26 +147,30 @@ def generate_market_data(idea: str, context: Dict[str, Any]) -> Dict[str, float]
         context: Context dictionary
         
     Returns:
-        Dictionary with numeric values for TAM, SAM, SOM
+        Dictionary with numeric values for TAM, SAM, SOM (in billions)
     """
-    system_prompt = """You are a Market Sizing AI.
-    Output ONLY a valid JSON object with numeric values (in billions for TAM/SAM, millions for SOM, or as appropriate).
-    Do not use strings, currency symbols, or suffixes. Return NUMBERS only.
+    system_prompt = """You are a Market Sizing AI for startup pitch decks.
+    Output ONLY a valid JSON object with realistic market size estimates.
+    Values should be in BILLIONS of dollars (e.g., 50 means $50 billion).
     
-    Required keys:
-    - TAM (Total Addressable Market in Billions)
-    - SAM (Serviceable Addressable Market in Billions)
-    - SOM (Serviceable Obtainable Market in Billions)
+    Guidelines:
+    - TAM (Total Addressable Market): The entire global market opportunity. Usually $10B-$500B+
+    - SAM (Serviceable Addressable Market): The segment you can realistically target. Usually 10-30% of TAM.
+    - SOM (Serviceable Obtainable Market): What you can capture in 3-5 years. Usually 1-5% of SAM.
     
-    Example output:
-    {"TAM": 10.5, "SAM": 2.1, "SOM": 0.5}
+    Return NUMBERS ONLY (no strings, no $, no 'B').
+    
+    Example output for a B2B SaaS:
+    {"TAM": 150, "SAM": 25, "SOM": 0.5}
     """
     
     user_prompt = f"""
-    Estimate conservative market sizes for:
+    Estimate realistic market sizes for this startup:
     Idea: {idea}
     Region: {context.get('region', 'Global')}
-    Target: {context.get('customer', 'General')}
+    Target Customer: {context.get('customer', 'General')}
+    
+    Research the actual market and provide realistic numbers in billions.
     """
     
     from google import genai
@@ -175,20 +179,20 @@ def generate_market_data(idea: str, context: Dict[str, Any]) -> Dict[str, float]
     
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
-        return {"TAM": 10, "SAM": 5, "SOM": 1} # Fallback
+        return {"TAM": 150, "SAM": 25, "SOM": 0.5}  # Realistic fallback
         
     client = genai.Client(api_key=api_key)
     
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash-lite",
+            model="gemini-2.5-flash-lite",
             contents=system_prompt + "\n\n" + user_prompt
         )
         text = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(text)
     except Exception as e:
         print(f"Error generating market data: {e}")
-        return {"TAM": 10, "SAM": 5, "SOM": 1} # Fallback
+        return {"TAM": 150, "SAM": 25, "SOM": 0.5}  # Realistic fallback
 
 if __name__ == "__main__":
     # Simple test

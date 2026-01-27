@@ -229,12 +229,17 @@ def update_market_chart(slides_service, sheets_service, presentation_id: str, ma
     
     print(f"Using chart tab: {chart_tab_name}")
     
-    # Update sheet values
+    # Convert billions to millions for chart (format divides by 1000)
+    # TAM/SAM are in billions, SOM is in billions too (0.5 = 500M)
+    tam_millions = market_data.get("TAM", 150) * 1000  # 150B = 150,000M
+    sam_millions = market_data.get("SAM", 25) * 1000   # 25B = 25,000M
+    som_millions = market_data.get("SOM", 0.5) * 1000  # 0.5B = 500M
+    
     sheet_values = [
         ["Metric", "Value"],
-        ["TAM", market_data.get("TAM", 0)],
-        ["SAM", market_data.get("SAM", 0)],
-        ["SOM", market_data.get("SOM", 0)]
+        ["TAM", tam_millions],
+        ["SAM", sam_millions],
+        ["SOM", som_millions]
     ]
     
     sheets_service.spreadsheets().values().update(
@@ -283,6 +288,51 @@ def export_presentation(drive_service, presentation_id: str, output_file: str):
     print(f"✓ Presentation exported successfully: {output_file}")
 
 
+def generate_pitch_deck(idea: str, context: Dict[str, str]) -> str:
+    """
+    Orchestrates the pitch deck generation process.
+    
+    Args:
+        idea: Startup idea description
+        context: Dictionary with customer, region, and constraints
+        
+    Returns:
+        Path to the generated PPTX file
+    """
+    print(f"\n🤖 Generating pitch deck for: {idea}")
+    
+    # 1. Generate Content with AI
+    print("   Generating structured metadata...")
+    generated_content = generate_pitch_metadata(idea, context)
+    
+    print("   Generating market data...")
+    market_data = generate_market_data(idea, context)
+    
+    # Load configuration from environment
+    template_id = get_env_variable("TEMPLATE_PRESENTATION_ID")
+    output_name = f"Pitch Deck - {generated_content.get('COMPANY_NAME', 'Startup')}"
+    output_filename = f"pitch_deck_{int(time.time())}.pptx"
+    output_file = os.path.join(os.getcwd(), output_filename)
+    
+    # Authenticate with Google services
+    slides_service, drive_service, sheets_service = authenticate_google_services()
+    
+    # Prepare placeholders
+    placeholders = prepare_placeholders(generated_content)
+    
+    # Create presentation
+    presentation_id = copy_template_presentation(drive_service, template_id, output_name)
+    
+    # Update content
+    replace_text_placeholders(slides_service, presentation_id, placeholders)
+    update_market_chart(slides_service, sheets_service, presentation_id, market_data)
+    
+    # Export final presentation
+    export_presentation(drive_service, presentation_id, output_file)
+    
+    return output_file
+
+
 def main():
     """Main execution function."""
     try:
@@ -293,38 +343,12 @@ def main():
         # 1. Get User Input
         user_data = get_user_input()
         
-        # 2. Generate Content with AI
-        print("\n🤖 Generating pitch deck content...")
-        generated_content = generate_pitch_metadata(user_data["idea"], user_data["context"])
-        
-        print("📊 Generating market data...")
-        market_data = generate_market_data(user_data["idea"], user_data["context"])
-        
-        # Load configuration from environment
-        template_id = get_env_variable("TEMPLATE_PRESENTATION_ID")
-        output_name = f"Pitch Deck - {generated_content.get('COMPANY_NAME', 'Startup')}"
-        output_file = get_env_variable("OUTPUT_FILE_NAME", "output_pitch_deck.pptx")
-        
-        # Authenticate with Google services
-        slides_service, drive_service, sheets_service = authenticate_google_services()
-        
-        # Prepare placeholders
-        placeholders = prepare_placeholders(generated_content)
-        
-        # Create presentation
-        presentation_id = copy_template_presentation(drive_service, template_id, output_name)
-        
-        # Update content
-        replace_text_placeholders(slides_service, presentation_id, placeholders)
-        update_market_chart(slides_service, sheets_service, presentation_id, market_data)
-        
-        # Export final presentation
-        export_presentation(drive_service, presentation_id, output_file)
+        # 2. Generate Deck
+        output_file = generate_pitch_deck(user_data["idea"], user_data["context"])
         
         print("=" * 60)
         print("✓ DONE! Your pitch deck is ready.")
         print(f"  File: {output_file}")
-        print(f"  Google Slides: https://docs.google.com/presentation/d/{presentation_id}")
         print("=" * 60)
         
     except Exception as e:
